@@ -37,7 +37,8 @@ class Mercure {
       void Function() onDone,
       bool cancelOnError}) {
     var params = topics.map((topic) => 'topic=$topic&').join();
-    EventSource.connect('$hub_url?$params', client: _client).then((eventSource) {
+    params = params.substring(0, params.length - 1);
+    EventSource.connect('$hub_url?$params&Last-Event-ID=true', client: _client).then((eventSource) {
       eventSource.listen(onData,
           onError: onError, onDone: onDone, cancelOnError: cancelOnError);
     });
