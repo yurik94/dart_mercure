@@ -7,21 +7,22 @@ import 'package:meta/meta.dart';
 class Mercure {
   final String hub_url;
   final String token;
-  final http.Client _client;
+  http.Client client;
 
-  Mercure({@required this.hub_url, @required this.token})
+  Mercure({@required this.hub_url, @required this.token, http.Client client})
       : assert(hub_url != null),
-        assert(token != null),
-        _client = AuthClient(token, http.Client());
+        assert(token != null) {
+    this.client = client ?? http.Client();
+    this.client = AuthClient(token, this.client);
+  }
 
   /// Subscribe to one mercure topic
-  StreamSubscription<Event> subscribeTopic(
-      {@required String topic,
-      @required void Function(Event event) onData,
-      Function onError,
-      void Function() onDone,
-      bool cancelOnError}) {
-    subscribeTopics(
+  Future<void> subscribeTopic({@required String topic,
+    @required void Function(Event event) onData,
+    Function onError,
+    void Function() onDone,
+    bool cancelOnError}) async {
+    await subscribeTopics(
         topics: <String>[topic],
         onData: onData,
         onError: onError,
@@ -30,23 +31,28 @@ class Mercure {
   }
 
   /// Subscribe to a list of mercure topics
-  StreamSubscription<Event> subscribeTopics(
-      {@required List<String> topics,
-      @required void Function(Event event) onData,
-      Function onError,
-      void Function() onDone,
-      bool cancelOnError}) {
+  Future<void> subscribeTopics({@required List<String> topics,
+    @required void Function(Event event) onData,
+    Function onError,
+    void Function() onDone,
+    bool cancelOnError}) async {
     var params = topics.map((topic) => 'topic=$topic&').join();
     params = params.substring(0, params.length - 1);
-    EventSource.connect('$hub_url?$params&Last-Event-ID=true', client: _client).then((eventSource) {
-      eventSource.listen(onData,
-          onError: onError, onDone: onDone, cancelOnError: cancelOnError);
-    });
+    var eventSource;
+    try {
+      eventSource = await EventSource.connect(
+          '$hub_url?$params&Last-Event-ID=true', client: this.client);
+      eventSource.listen(onData, onError: onError,
+          onDone: onDone,
+          cancelOnError: cancelOnError);
+    } catch (e) {
+      throw e;
+    }
   }
 
   /// Publish data in mercure topic
   Future<int> publish({@required String topic, @required String data}) async {
-    var response = await _client.post(hub_url,
+    var response = await this.client.post(hub_url,
         body: {'topic': topic, 'data': data});
     return response.statusCode;
   }
